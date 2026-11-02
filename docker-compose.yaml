@@ -2,10 +2,51 @@ services:
   rabbitmq:
     image: rabbitmq:3-management
     ports:
-      - "5672:5672"     
-      - "15672:15672"   # viðmót til að skoða queues
+      - "5672:5672"
+      - "15672:15672"
     healthcheck:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 5s
       timeout: 5s
       retries: 20
+
+  OrderService:
+    build: ./OrderService
+    image: orderservice
+    ports:
+      - "8000:8000"
+    volumes:
+      - order-data:/app/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+
+  MerchantService:
+    build: ./MerchantService
+    image: merchantservice
+    ports:
+      - "8001:8001"
+    volumes:
+      - merchant-data:/app/data
+  
+  BuyerService:
+    build: ./BuyerService
+    image: buyerservice
+    ports:
+      - "8002:8002"
+    volumes:
+      - buyer-data:/app/data
+
+  InventoryService:
+    build: ./InventoryService
+    image: inventoryservice
+    ports:
+      - "8003:8003"
+    volumes:
+      - inventory-data:/app/data
+
+volumes:
+  order-data:
+  merchant-data:
+  buyer-data:
+  inventory-data:
