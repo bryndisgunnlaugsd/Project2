@@ -16,7 +16,6 @@ def get_db():
     return conn
 
 
-# Búum til gagnagrunnstöflu fyrir greiðslur
 conn = get_db()
 conn.execute("""
     CREATE TABLE IF NOT EXISTS payments (
@@ -50,8 +49,6 @@ def luhn_check(card_number):
 
 
 # Validate kortaupplýsingar
-
-# Athugum hvort kortaupplýsingarnar séu gildar
 def validate_credit_card(credit_card):
     card_number = str(credit_card.get("cardNumber", ""))
     month = credit_card.get("expirationMonth")
@@ -87,7 +84,7 @@ def validate_credit_card(credit_card):
 
     
 
-# RabbitMQ serverinn sem keyrir í Docker
+# RabbitMQ 
 RABBITMQ_HOST = "rabbitmq"
 
 
@@ -133,11 +130,10 @@ def process_order(channel, method, properties, body):
         channel.basic_ack(delivery_tag=method.delivery_tag)
         return
 
-
     # Athugum hvort kortaupplýsingarnar séu gildar
     success = validate_credit_card(credit_card)
 
-    # Vistum niðurstöðuna í gagnagrunn
+    # Vistum niðurstöðuna
     conn = get_db()
     conn.execute(
         "INSERT INTO payments (orderId, status) VALUES (?, ?)",
@@ -156,11 +152,10 @@ def process_order(channel, method, properties, body):
 
     publish_payment_result(channel, payment_event, success)
 
-    # Segjum RabbitMQ að búið sé að vinna úr skilaboðunum
+
     channel.basic_ack(delivery_tag=method.delivery_tag)
 
 
-# Tengjumst RabbitMQ og hlustum eftir pöntunum
 def start_consumer():
     connection = pika.BlockingConnection(
         pika.ConnectionParameters(host=RABBITMQ_HOST)
@@ -168,14 +163,13 @@ def start_consumer():
 
     channel = connection.channel()
 
-    # Sama exchange og OrderService notar
     channel.exchange_declare(
         exchange="order_created",
         exchange_type="fanout",
         durable=True
     )
 
-    # Sér queue fyrir PaymentService
+    # Queue fyrir PaymentService
     channel.queue_declare(queue="payment_orders", durable=True)
 
     channel.queue_bind(
@@ -183,7 +177,6 @@ def start_consumer():
         queue="payment_orders"
     )
 
-    # Tökum eitt event í einu
     channel.basic_qos(prefetch_count=1)
 
     channel.basic_consume(
