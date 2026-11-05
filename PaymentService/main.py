@@ -82,8 +82,6 @@ def validate_credit_card(credit_card):
 
     return True
 
-    
-
 # RabbitMQ 
 RABBITMQ_HOST = "rabbitmq"
 
