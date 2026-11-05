@@ -45,8 +45,19 @@ services:
     volumes:
       - inventory-data:/app/data
 
+  paymentservice:
+    build: ./PaymentService
+    volumes:
+      - payment-data:/app/data
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+
+
 volumes:
   order-data:
   merchant-data:
   buyer-data:
   inventory-data:
+  payment-data:

@@ -42,7 +42,7 @@ class Merchant(BaseModel):
 def create_merchant(merchant: Merchant):
     conn = get_db()
     cur = conn.execute(
-        "INSERT INTO merchants (name, ssn, email, phoneNumber, allowsDiscount) VALUES (?, ?, ?, ?)"
+        "INSERT INTO merchants (name, ssn, email, phoneNumber, allowsDiscount) VALUES (?, ?, ?, ?, ?)",
         (merchant.name, merchant.ssn, merchant.email, merchant.phoneNumber, int(merchant.allowsDiscount)),
     )
     conn.commit()
