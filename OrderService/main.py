@@ -101,10 +101,16 @@ def create_order(order: Order):
     if product["merchantId"] != order.merchantId:
         raise HTTPException(status_code=400, detail="Product does not belong to merchant")
 
-    # Merchant does not allow discount
-    discount = order.discount or 0
+    # athugum hvort afslatturinn se a bilinu 0 til 1
+    discount = order.discount 
+    if discount is None:
+        discount = 0
+
+    if discount < 0 or discount > 1:
+        raise HTTPException(status_code=400, detail="invalid discount")
+    #athuga hvort seljandi leyfi discoutn
     if not merchant["allowsDiscount"] and discount != 0:
-        raise HTTPException(status_code=400, detail="Merchant does not allow discount")
+        raise HTTPException(status_code=400, detail="merchant doesnt allow discount")
 
     # Taka vöruna frá
     res = requests.post(f"{INVENTORY_URL}/products/{order.productId}/reserve")
