@@ -53,6 +53,15 @@ services:
       rabbitmq:
         condition: service_healthy
     restart: unless-stopped
+  
+  emailservice:
+    build: ./EmailService
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    env_file:
+      - ./EmailService/.env
+    restart: unless-stopped
 
 
 volumes:
