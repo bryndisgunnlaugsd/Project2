@@ -2,6 +2,9 @@ import os
 import sqlite3
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
+import threading
+import pika
+import json
 
 DB_PATH = "data/inventory.db"
 os.makedirs("data", exist_ok=True)
@@ -90,3 +93,74 @@ def reserve_product(id: int):
         raise HTTPException(status_code=400, detail="Product is sold out")
 
     return {"message": "Product reserved"}
+#tekur við niðurstöðu greiðslu fra rabbitmq
+def process_payment(channel, method, properties, body):
+    event = json.loads(body)
+    product_id = event["productId"]
+    conn = get_db()
+
+    #ef greiðsla tokstminnkum lager og fratekið magn
+    if method.exchange == "payment_success":
+        conn.execute(
+            """
+            UPDATE products
+            SET quantity = quantity -1,
+                reserved = reserved -1
+            WHERE id = ? AND reserved > 0
+            """,
+            (product_id,)
+        )
+    #ef virkaði ekki, losum við vöru
+    elif method.exchange == "payment_failure":
+        conn.execute(
+            """
+            UPDATE products
+            SET reserved = reserved - 1
+            WHERE id = ? AND reserved > 0
+            """,
+            (product_id,)
+        )
+    conn.commit()
+    conn.close()
+#staðfestir að buið se að vinna ur skilaboðum
+    channel.basic_ack(delivery_tag=method.delivery_tag)
+#tengist rabbitmq og hlustar eftir greiðslum
+def start_consumer():
+    connection = pika.BlockingConnection(
+        pika.ConnectionParameters(host="rabbitmq")
+    )
+    channel = connection.channel()
+    exchanges = ["payment_success", "payment_failure"]
+    for exchange in exchanges:
+        channel.exchange_declare(
+            exchange=exchange,
+            exchange_type="fanout",
+            durable=True
+
+        )
+#ser biðröð fyrir inventory service
+        queue_name= f"inventory_{exchange}"
+        channel.queue_declare(
+            queue=queue_name,
+            durable=True
+        )
+        channel.queue_bind(
+            exchange=exchange,
+            queue= queue_name
+        )
+        channel.basic_consume(
+            queue = queue_name,
+            on_message_callback=process_payment,
+            auto_ack=False
+        )
+    channel.basic_qos(prefetch_count=1)
+    print("InventoryService waiting for payments...", flush=True)
+    channel.start_consuming()
+#ræsir rabbitmq hlustun i ser þræði
+@app.on_event("startup")
+def start_rabbitmq():
+    thread = threading.Thread(
+        target=start_consumer,
+        daemon=True
+    )
+    thread.start()
